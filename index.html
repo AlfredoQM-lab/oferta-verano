@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Simulador de Matrícula Verano</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #f8fafc; }
+    .card-selected { border-color: #2563eb !important; background-color: #eff6ff !important; }
+  </style>
+</head>
+<body class="text-slate-800 pb-32 antialiased">
+
+  <!-- Header -->
+  <header class="bg-gradient-to-r from-slate-900 via-blue-950 to-slate-900 text-white pt-8 pb-14 px-4 shadow-lg">
+    <div class="max-w-3xl mx-auto">
+      <div class="flex items-center justify-between mb-2">
+        <span class="text-xs font-semibold uppercase tracking-wider bg-blue-500/20 text-blue-300 border border-blue-400/30 px-2.5 py-1 rounded-full">
+          Ciclo Verano 2027-0
+        </span>
+        <span id="statusBadge" class="text-xs text-slate-400 flex items-center gap-1.5">
+          <span class="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span> Sincronizando...
+        </span>
+      </div>
+      <h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight">Consulta de Carga Hábil</h1>
+      <p class="text-slate-300 text-sm mt-1">Ingresa tu código de alumno o DNI para ver tus cursos y simular tus créditos.</p>
+    </div>
+  </header>
+
+  <!-- Buscador -->
+  <main class="max-w-3xl mx-auto px-4 -mt-8">
+    <div class="bg-white rounded-2xl shadow-md border border-slate-200/80 p-3 sm:p-4">
+      <form id="searchForm" class="flex gap-2">
+        <div class="relative flex-1">
+          <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+          </div>
+          <input 
+            type="text" 
+            id="codigoInput" 
+            placeholder="Código de alumno o DNI" 
+            class="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-base font-semibold text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:bg-white transition"
+            required
+          />
+        </div>
+        <button 
+          type="submit" 
+          id="btnBuscar"
+          disabled
+          class="bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 text-white font-bold px-5 sm:px-7 py-3 rounded-xl shadow-sm transition active:scale-95 flex items-center gap-2">
+          <span>Consultar</span>
+        </button>
+      </form>
+    </div>
+
+    <!-- Estado Inicial -->
+    <div id="emptyState" class="text-center py-16 px-4">
+      <div class="w-16 h-16 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
+        <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg>
+      </div>
+      <h3 class="text-lg font-bold text-slate-800">Listo para consultar</h3>
+      <p class="text-sm text-slate-500 max-w-md mx-auto mt-1">Digita tu código o DNI para visualizar tus cursos disponibles en la oferta de verano.</p>
+    </div>
+
+    <!-- Alerta de Error -->
+    <div id="errorBox" class="hidden mt-6 bg-red-50 border border-red-200 text-red-700 px-4 py-4 rounded-2xl text-sm flex items-start gap-3">
+      <svg class="w-5 h-5 text-red-500 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+      <div>
+        <p class="font-bold">Registro no encontrado</p>
+        <p class="mt-0.5 text-red-600">Verifica que tu código de alumno o DNI esté bien escrito.</p>
+      </div>
+    </div>
+
+    <!-- Resultados -->
+    <div id="resultsContainer" class="hidden mt-6 space-y-6">
+      <div class="bg-white border border-slate-200 rounded-2xl p-4 sm:p-5 flex flex-wrap items-center justify-between gap-4 shadow-sm">
+        <div>
+          <p class="text-xs font-bold uppercase tracking-wider text-blue-600">Estudiante Identificado</p>
+          <h2 id="lblCarrera" class="text-base sm:text-lg font-extrabold text-slate-900 mt-0.5">CARRERA</h2>
+          <p class="text-xs text-slate-500 mt-0.5">Código: <span id="lblCodigo" class="font-semibold text-slate-700"></span> | DNI: <span id="lblDni" class="font-semibold text-slate-700"></span></p>
+        </div>
+        <div class="flex gap-3 text-center">
+          <div class="bg-emerald-50 border border-emerald-200 px-3.5 py-2 rounded-xl">
+            <span id="countDisponibles" class="block text-xl font-extrabold text-emerald-700">0</span>
+            <span class="text-[11px] font-semibold text-emerald-600 uppercase">En Verano</span>
+          </div>
+          <div class="bg-slate-50 border border-slate-200 px-3.5 py-2 rounded-xl">
+            <span id="countTotal" class="block text-xl font-extrabold text-slate-700">0</span>
+            <span class="text-[11px] font-semibold text-slate-500 uppercase">Carga Hábil</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Cursos Disponibles -->
+      <div>
+        <div class="flex items-center justify-between mb-3">
+          <h3 class="text-sm font-extrabold uppercase tracking-wider text-slate-700 flex items-center gap-2">
+            <span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
+            Cursos disponibles en Verano (Selecciona para sumar)
+          </h3>
+          <button id="btnLimpiar" class="hidden text-xs font-semibold text-blue-600 hover:underline">Limpiar selección</button>
+        </div>
+        <div id="listaDisponibles" class="space-y-3"></div>
+      </div>
+
+      <!-- Cursos No Disponibles -->
+      <div id="bloqueNoDisponibles" class="hidden pt-2">
+        <details class="group bg-white border border-slate-200 rounded-2xl overflow-hidden">
+          <summary class="flex items-center justify-between p-4 cursor-pointer select-none bg-slate-50/70 hover:bg-slate-100/70 transition">
+            <div class="flex items-center gap-2">
+              <span class="w-2.5 h-2.5 rounded-full bg-slate-400"></span>
+              <span class="text-xs font-bold uppercase tracking-wider text-slate-600">
+                Otros cursos de tu carga hábil sin apertura (<span id="countNoDisp">0</span>)
+              </span>
+            </div>
+            <svg class="w-5 h-5 text-slate-400 group-open:rotate-180 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+          </summary>
+          <div id="listaNoDisponibles" class="p-4 pt-2 divide-y divide-slate-100 text-sm text-slate-500"></div>
+        </details>
+      </div>
+    </div>
+  </main>
+
+  <!-- Barra Flotante de Créditos -->
+  <div id="bottomBar" class="fixed bottom-0 inset-x-0 bg-white/95 backdrop-blur-md border-t border-slate-200 shadow-[0_-8px_30px_rgba(0,0,0,0.08)] transform translate-y-full transition-transform duration-300 z-50">
+    <div class="max-w-3xl mx-auto px-4 py-3.5 flex items-center justify-between gap-4">
+      <div>
+        <span class="text-[11px] font-bold uppercase tracking-wider text-slate-400 block">Créditos Seleccionados</span>
+        <div class="flex items-baseline gap-1.5">
+          <span id="totalCreditos" class="text-2xl sm:text-3xl font-extrabold text-blue-600">0</span>
+          <span class="text-xs font-semibold text-slate-500">créditos (<span id="totalCursosSel">0</span> cursos)</span>
+        </div>
+      </div>
+      <button 
+        id="btnCopiarResumen"
+        class="bg-slate-900 hover:bg-slate-800 text-white text-xs sm:text-sm font-bold px-4 sm:px-5 py-3 rounded-xl shadow-sm transition active:scale-95 flex items-center gap-2">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"/></svg>
+        <span id="txtCopiar">Copiar resumen</span>
+      </button>
+    </div>
+  </div>
+
+  <script>
+    let dbCarga = null;
+    let dbOferta = null;
+    let seleccionados = new Set();
+    let alumnoActual = null;
+
+    async function inicializarBases() {
+      const badge = document.getElementById('statusBadge');
+      const btnBuscar = document.getElementById('btnBuscar');
+
+      try {
+        const resVer = await fetch('version.json?t=' + Date.now());
+        const { v } = await resVer.json();
+        
+        const [resCarga, resOferta] = await Promise.all([
+          fetch('carga_habil.json?v=' + v),
+          fetch('oferta_verano.json?v=' + v)
+        ]);
+        dbCarga = await resCarga.json();
+        dbOferta = await resOferta.json();
+
+        badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-400"></span> Base actualizada`;
+        btnBuscar.disabled = false;
+      } catch (err) {
+        badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-red-400"></span> Error de carga`;
+        console.error(err);
+      }
+    }
+
+    document.getElementById('searchForm').addEventListener('submit', (e) => {
+      e.preventDefault();
+      const query = document.getElementById('codigoInput').value.trim();
+      buscarAlumno(query);
+    });
+
+    function buscarAlumno(query) {
+      const emptyState = document.getElementById('emptyState');
+      const errorBox = document.getElementById('errorBox');
+      const resultsContainer = document.getElementById('resultsContainer');
+
+      seleccionados.clear();
+      actualizarBarraCreditos();
+
+      let codAlumno = query;
+      if (dbCarga.dni_map && dbCarga.dni_map[query]) {
+        codAlumno = dbCarga.dni_map[query];
+      }
+
+      const alumnosData = dbCarga.alumnos || dbCarga;
+
+      if (!alumnosData[codAlumno]) {
+        emptyState.classList.add('hidden');
+        resultsContainer.classList.add('hidden');
+        errorBox.classList.remove('hidden');
+        return;
+      }
+
+      errorBox.classList.add('hidden');
+      emptyState.classList.add('hidden');
+      resultsContainer.classList.remove('hidden');
+
+      const dataAlumno = alumnosData[codAlumno];
+      alumnoActual = { codigo: codAlumno, carrera: dataAlumno.c, dni: dataAlumno.d };
+
+      document.getElementById('lblCarrera').textContent = dataAlumno.c;
+      document.getElementById('lblCodigo').textContent = codAlumno;
+      document.getElementById('lblDni').textContent = dataAlumno.d || 'No registrado';
+
+      const disponibles = [];
+      const noDisponibles = [];
+
+      dataAlumno.k.forEach(codCurso => {
+        if (dbOferta[codCurso]) {
+          disponibles.push({ cod: codCurso, ...dbOferta[codCurso] });
+        } else {
+          noDisponibles.push(codCurso);
+        }
+      });
+
+      document.getElementById('countDisponibles').textContent = disponibles.length;
+      document.getElementById('countTotal').textContent = dataAlumno.k.length;
+
+      renderDisponibles(disponibles);
+      renderNoDisponibles(noDisponibles);
+    }
+
+    function renderDisponibles(cursos) {
+      const contenedor = document.getElementById('listaDisponibles');
+      contenedor.innerHTML = '';
+
+      if (cursos.length === 0) {
+        contenedor.innerHTML = `<div class="bg-amber-50 border border-amber-200 text-amber-800 p-4 rounded-2xl text-sm">Ninguno de tus cursos hábiles tiene apertura para este verano.</div>`;
+        return;
+      }
+
+      cursos.forEach(curso => {
+        const card = document.createElement('div');
+        card.id = `card-${curso.cod}`;
+        card.className = "bg-white border-2 border-slate-200/90 rounded-2xl p-4 sm:p-5 cursor-pointer transition-all hover:border-blue-300 shadow-sm select-none";
+        card.onclick = () => toggleCurso(curso.cod);
+
+        const horariosHTML = curso.h.map(item => `
+          <div class="flex flex-wrap items-center justify-between gap-2 text-xs bg-slate-50 border border-slate-200/70 px-3 py-2 rounded-xl">
+            <div class="flex items-center gap-2">
+              <span class="font-bold text-slate-700">${item.s}:</span>
+              <span class="text-slate-600 font-medium">${item.d} • ${item.h}</span>
+            </div>
+            <div class="flex items-center gap-1.5">
+              <span class="px-2 py-0.5 rounded-md font-semibold text-[11px] ${item.m === 'VIRTUAL' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}">${item.m}</span>
+              <span class="px-2 py-0.5 rounded-md bg-slate-200/70 text-slate-700 font-semibold text-[11px]">${item.l}</span>
+            </div>
+          </div>
+        `).join('');
+
+        card.innerHTML = `
+          <div class="flex items-start justify-between gap-3">
+            <div class="flex items-start gap-3">
+              <div id="chk-${curso.cod}" class="w-6 h-6 rounded-lg border-2 border-slate-300 flex items-center justify-center shrink-0 mt-0.5 transition-colors bg-white">
+                <svg class="w-4 h-4 text-white hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/></svg>
+              </div>
+              <div>
+                <div class="flex items-center gap-2 flex-wrap">
+                  <span class="text-xs font-extrabold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-md">${curso.cod}</span>
+                  <span class="text-xs font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md">${curso.cr} créditos</span>
+                </div>
+                <h4 class="font-bold text-slate-900 text-sm sm:text-base mt-1 leading-snug">${curso.n}</h4>
+              </div>
+            </div>
+          </div>
+          <div class="mt-3 pt-3 border-t border-slate-100 space-y-1.5">${horariosHTML}</div>
+        `;
+        contenedor.appendChild(card);
+      });
+    }
+
+    function renderNoDisponibles(codigos) {
+      const bloque = document.getElementById('bloqueNoDisponibles');
+      const lista = document.getElementById('listaNoDisponibles');
+      document.getElementById('countNoDisp').textContent = codigos.length;
+
+      if (codigos.length === 0) {
+        bloque.classList.add('hidden');
+        return;
+      }
+
+      bloque.classList.remove('hidden');
+      lista.innerHTML = codigos.map(cod => `
+        <div class="py-2 flex items-center justify-between">
+          <span class="font-mono font-semibold text-slate-600">${cod}</span>
+          <span class="text-xs bg-slate-100 text-slate-500 px-2 py-0.5 rounded">Sin apertura verano</span>
+        </div>
+      `).join('');
+    }
+
+    function toggleCurso(cod) {
+      const card = document.getElementById(`card-${cod}`);
+      const chk = document.getElementById(`chk-${cod}`);
+      const icon = chk.querySelector('svg');
+
+      if (seleccionados.has(cod)) {
+        seleccionados.delete(cod);
+        card.classList.remove('card-selected');
+        chk.classList.remove('bg-blue-600', 'border-blue-600');
+        chk.classList.add('bg-white', 'border-slate-300');
+        icon.classList.add('hidden');
+      } else {
+        seleccionados.add(cod);
+        card.classList.add('card-selected');
+        chk.classList.remove('bg-white', 'border-slate-300');
+        chk.classList.add('bg-blue-600', 'border-blue-600');
+        icon.classList.remove('hidden');
+      }
+      actualizarBarraCreditos();
+    }
+
+    function actualizarBarraCreditos() {
+      const bar = document.getElementById('bottomBar');
+      const btnLimpiar = document.getElementById('btnLimpiar');
+      let sumaCreditos = 0;
+
+      seleccionados.forEach(cod => {
+        if (dbOferta[cod]) sumaCreditos += dbOferta[cod].cr;
+      });
+
+      document.getElementById('totalCreditos').textContent = sumaCreditos;
+      document.getElementById('totalCursosSel').textContent = seleccionados.size;
+
+      if (seleccionados.size > 0) {
+        bar.classList.remove('translate-y-full');
+        btnLimpiar.classList.remove('hidden');
+      } else {
+        bar.classList.add('translate-y-full');
+        btnLimpiar.classList.add('hidden');
+      }
+    }
+
+    document.getElementById('btnLimpiar').addEventListener('click', () => {
+      Array.from(seleccionados).forEach(cod => toggleCurso(cod));
+    });
+
+    document.getElementById('btnCopiarResumen').addEventListener('click', () => {
+      if (!alumnoActual || seleccionados.size === 0) return;
+
+      let totalCr = 0;
+      const lineas = Array.from(seleccionados).map(cod => {
+        const c = dbOferta[cod];
+        totalCr += c.cr;
+        return `• [${cod}] ${c.n} (${c.cr} cr.)`;
+      });
+
+      const texto = `Simulación Matrícula Verano\nCódigo: ${alumnoActual.codigo}\nDNI: ${alumnoActual.dni}\nCarrera: ${alumnoActual.carrera}\n\nCursos seleccionados:\n${lineas.join('\n')}\n\nTotal: ${totalCr} créditos`;
+
+      navigator.clipboard.writeText(texto).then(() => {
+        const txt = document.getElementById('txtCopiar');
+        txt.textContent = "¡Copiado!";
+        setTimeout(() => txt.textContent = "Copiar resumen", 2000);
+      });
+    });
+
+    inicializarBases();
+  </script>
+</body>
+</html>
